@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Image Generator</title>
+    <title>SDXL - Image Generator</title>
     <!-- Add Bootstrap CSS link -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
@@ -21,16 +21,8 @@
             <input type="text" id="textInput" class="form-control" placeholder="Enter your input">
         </div>
         <div class="mb-3">
-            <label for="numReturnSeq" class="form-label">Number of Sequences</label>
-            <input type="number" id="numReturnSeq" class="form-control" value="1">
-        </div>
-        <div class="mb-3">
-            <label for="maxLength" class="form-label">Max Length</label>
-            <input type="number" id="maxLength" class="form-control" value="100">
-        </div>
-        <div class="mb-3">
-            <label for="temperature" class="form-label">Temperature</label>
-            <input type="number" id="temperature" class="form-control" step="0.1" value="1.0">
+            <label for="parameters" class="form-label">Parameters: Number of Sequences, Max Length, Temperature</label>
+            <input type="text" id="parameters" class="form-control" placeholder="1, 100, 1.0">
         </div>
         <button id="generateButton" class="btn btn-primary">Generate Image</button>
         <div id="loading" class="alert alert-info mt-3" style="display: none;">Loading...</div>
@@ -42,7 +34,7 @@
                     <th>Name</th>
                     <th>Image</th>
                     <th>Time</th>
-                    <th>Download</th>
+                    <th>Actions</th>
                 </tr>
             </thead>
             <tbody id="imageTableBody">
@@ -56,9 +48,7 @@
     <script>
         const generateButton = document.getElementById("generateButton");
         const textInput = document.getElementById("textInput");
-        const numReturnSeq = document.getElementById("numReturnSeq");
-        const maxLength = document.getElementById("maxLength");
-        const temperature = document.getElementById("temperature");
+        const parametersInput = document.getElementById("parameters");
         const loading = document.getElementById("loading");
         const imageContainer = document.getElementById("imageContainer");
         const imageTableBody = document.getElementById("imageTableBody");
@@ -72,11 +62,13 @@
             loading.style.display = "block";
             imageContainer.style.display = "none";
 
+            const [numReturnSeq, maxLength, temperature] = parametersInput.value.split(",").map(param => param.trim());
+
             const params = {
                 "inputs": inputText,
-                "num_return_sequences": parseInt(numReturnSeq.value),
-                "max_length": parseInt(maxLength.value),
-                "temperature": parseFloat(temperature.value)
+                "num_return_sequences": parseInt(numReturnSeq),
+                "max_length": parseInt(maxLength),
+                "temperature": parseFloat(temperature)
             };
 
             const response = await fetch(
@@ -89,34 +81,41 @@
             );
 
             const blob = await response.blob();
-            const imageUrl = URL.createObjectURL(blob);
+            const reader = new FileReader();
+            reader.onload = function () {
+                const base64Image = reader.result;
+                displayImage(base64Image);
+                saveToLocalStorage(inputText, base64Image);
+                updateImageTable();
+            };
+            reader.readAsDataURL(blob);
+        });
 
+        function displayImage(base64Image) {
             loading.style.display = "none";
             imageContainer.style.display = "block";
-            imageContainer.innerHTML = `<img src="${imageUrl}" alt="Generated Image" class="img-fluid result-image">`;
+            imageContainer.innerHTML = `<img src="${base64Image}" alt="Generated Image" class="img-fluid result-image">`;
+        }
 
-            // Save to localStorage
+        function saveToLocalStorage(name, base64Image) {
+            const existingEntries = JSON.parse(localStorage.getItem("imageEntries")) || [];
             const now = new Date();
             const imageEntry = {
                 id: now.getTime(),
-                name: inputText,
-                image: imageUrl,
+                name: name,
+                image: base64Image,
                 time: now.toLocaleString(),
             };
-            saveToLocalStorage(imageEntry);
-
-            // Update the table
-            updateImageTable();
-        });
-
-        function saveToLocalStorage(entry) {
-            const existingEntries = JSON.parse(localStorage.getItem("imageEntries")) || [];
-            existingEntries.push(entry);
+            existingEntries.push(imageEntry);
             localStorage.setItem("imageEntries", JSON.stringify(existingEntries));
         }
 
         function updateImageTable() {
             const existingEntries = JSON.parse(localStorage.getItem("imageEntries")) || [];
+            
+            // Sort by time (newest first)
+            existingEntries.sort((a, b) => new Date(b.time) - new Date(a.time));
+            
             imageTableBody.innerHTML = "";
             existingEntries.forEach((entry) => {
                 const row = `
@@ -125,10 +124,20 @@
                         <td>${entry.name}</td>
                         <td><img src="${entry.image}" alt="Generated Image" class="img-thumbnail" style="max-width: 100px;"></td>
                         <td>${entry.time}</td>
-                        <td><a href="${entry.image}" download>Download</a></td>
+                        <td>
+                            <a href="${entry.image}" download class="btn btn-sm btn-primary">Download</a>
+                            <button onclick="deleteImage(${entry.id})" class="btn btn-sm btn-danger ms-2">Delete</button>
+                        </td>
                     </tr>`;
                 imageTableBody.innerHTML += row;
             });
+        }
+
+        function deleteImage(id) {
+            const existingEntries = JSON.parse(localStorage.getItem("imageEntries")) || [];
+            const updatedEntries = existingEntries.filter(entry => entry.id !== id);
+            localStorage.setItem("imageEntries", JSON.stringify(updatedEntries));
+            updateImageTable();
         }
 
         // Initial table update on page load
