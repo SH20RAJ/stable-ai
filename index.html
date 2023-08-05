@@ -93,7 +93,7 @@
 
             loading.style.display = "none";
             imageContainer.style.display = "block";
-            imageContainer.innerHTML = `<img src="${imageUrl}" alt="Generating Image" class="img-fluid result-image">`;
+            imageContainer.innerHTML = `<img src="${imageUrl}" alt="Generated Image" class="img-fluid result-image">`;
 
             // Save to localStorage
             const now = new Date();
@@ -123,7 +123,7 @@
                     <tr>
                         <td>${entry.id}</td>
                         <td>${entry.name}</td>
-                        <td><img src="${entry.image}" alt="Generating Image" class="img-thumbnail" style="max-width: 100px;"></td>
+                        <td><img src="${entry.image}" alt="Generated Image" class="img-thumbnail" style="max-width: 100px;"></td>
                         <td>${entry.time}</td>
                         <td><a href="${entry.image}" download>Download</a></td>
                     </tr>`;
